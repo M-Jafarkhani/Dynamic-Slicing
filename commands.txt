@@ -1,0 +1,7 @@
+python -m dynapyt.run_instrumentation \
+ --analysis trace_writes.TraceWritesAnalysis \
+ --directory smaple/task 1
+
+ python -m dynapyt.run_analysis \
+ --analysis trace_writes.TraceWritesAnalysis \
+ --entry smaple/task 1/main.py 
