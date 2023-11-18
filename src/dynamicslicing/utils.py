@@ -39,13 +39,22 @@ class RemoveLines(cst.CSTTransformer):
         PositionProvider,
     )
 
-    def __init__(self, lines_to_remove: List[int]) -> None:
-        self.lines_to_remove = lines_to_remove
+    def __init__(self, lines_to_keep: List[int]) -> None:
+        self.lines_to_keep = lines_to_keep
+
+    # def leave_If(self, original_node: If, updated_node: If) -> cst.If:
+    #     location = self.get_metadata(PositionProvider, original_node)
+    #     if location.start.line not in self.lines_to_keep:
+    #             return cst.RemoveFromParent()
+    #     return updated_node
 
     def leave_SimpleStatementLine(self, original_node, updated_node):
         for statement in original_node.body:
+            # print('---')
+            # print(statement)
+            # print('---')
             location = self.get_metadata(PositionProvider, original_node)
-            if location.start.line not in self.lines_to_remove:
+            if location.start.line in self.lines_to_keep:
                 return cst.RemoveFromParent()
             return updated_node
 
@@ -56,14 +65,9 @@ def negate_odd_ifs(code: str) -> str:
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
 
-def remove_lines(code: str, lines_to_remove: List[int]) -> str:
+def remove_lines(code: str, lines_to_keep: List[int]) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
-    code_modifier = RemoveLines(lines_to_remove)
+    code_modifier = RemoveLines(lines_to_keep)
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
-
-
-
-# Example usage:
-
