@@ -9,7 +9,6 @@ from libcst.metadata import (
 )
 import libcst.matchers as m
 
-
 class OddIfNegation(m.MatcherDecoratableTransformer):
     """
     Negate the test of every if statement on an odd line.
@@ -19,7 +18,7 @@ class OddIfNegation(m.MatcherDecoratableTransformer):
         PositionProvider,
     )
 
-    def leave_If(self, original_node: If, updated_node: If) -> BaseStatement | FlattenSentinel[BaseStatement] | RemovalSentinel:
+    def leave_If(self, original_node: If, updated_node: If) -> cst.If:
         location = self.get_metadata(PositionProvider, original_node)
         if location.start.line % 2 == 0:
             return updated_node
@@ -31,6 +30,25 @@ class OddIfNegation(m.MatcherDecoratableTransformer):
             test=negated_test,
         )
 
+class RemoveLines(cst.CSTTransformer):
+    """
+    Remove lines that are not included in a given array.
+    """
+    METADATA_DEPENDENCIES = (
+        ParentNodeProvider,
+        PositionProvider,
+    )
+
+    def __init__(self, lines_to_remove: List[int]) -> None:
+        self.lines_to_remove = lines_to_remove
+
+    def leave_SimpleStatementLine(self, original_node, updated_node):
+        for statement in original_node.body:
+            location = self.get_metadata(PositionProvider, original_node)
+            if location.start.line not in self.lines_to_remove:
+                return cst.RemoveFromParent()
+            return updated_node
+
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
@@ -39,4 +57,13 @@ def negate_odd_ifs(code: str) -> str:
     return new_syntax_tree.code
 
 def remove_lines(code: str, lines_to_remove: List[int]) -> str:
-    pass
+    syntax_tree = cst.parse_module(code)
+    wrapper = cst.metadata.MetadataWrapper(syntax_tree)
+    code_modifier = RemoveLines(lines_to_remove)
+    new_syntax_tree = wrapper.visit(code_modifier)
+    return new_syntax_tree.code
+
+
+
+# Example usage:
+
