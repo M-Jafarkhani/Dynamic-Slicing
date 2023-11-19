@@ -60,12 +60,17 @@ class RemoveLines(cst.CSTTransformer):
             return cst.RemoveFromParent()
         return updated_node
 
+    def leave_Else(self, original_node: If, updated_node: If) -> cst.Else:
+        location = self.get_metadata(PositionProvider, original_node)
+        if location.start.line in self.lines_to_keep:
+            return cst.RemoveFromParent()
+        return updated_node
+    
     def leave_SimpleStatementLine(self, original_node, updated_node):
-        for statement in original_node.body:
-            location = self.get_metadata(PositionProvider, original_node)
-            if location.start.line in self.lines_to_keep:
-                return cst.RemoveFromParent()
-            return updated_node
+        location = self.get_metadata(PositionProvider, original_node)
+        if location.start.line in self.lines_to_keep:
+            return cst.RemoveFromParent()
+        return updated_node 
 
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)

@@ -1,7 +1,9 @@
+# Please navigate to folder dynamicslicing first!
+
 python -m dynapyt.run_instrumentation \
  --analysis trace_writes.TraceWritesAnalysis \
- --directory samples/task1
+ --directory ../../tests/milestone1/task_1
 
 python -m dynapyt.run_analysis \
  --analysis trace_writes.TraceWritesAnalysis \
- --entry samples/task1/main.py 
+ --entry ../../tests/milestone1/task_1/main.py
