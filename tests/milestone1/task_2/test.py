@@ -5,7 +5,7 @@ from os.path import join
 from os.path import realpath, dirname, sep
 
 import sys
-sys.path.append('../..')
+sys.path.append('../../..')
 from src.dynamicslicing.utils import remove_lines
 
 def correct_output(expected: str, actual: str) -> bool:
