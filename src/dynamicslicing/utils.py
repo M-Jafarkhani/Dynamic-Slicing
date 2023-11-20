@@ -9,6 +9,7 @@ from libcst.metadata import (
 )
 import libcst.matchers as m
 
+
 class OddIfNegation(m.MatcherDecoratableTransformer):
     """
     Negate the test of every if statement on an odd line.
@@ -29,6 +30,7 @@ class OddIfNegation(m.MatcherDecoratableTransformer):
         return updated_node.with_changes(
             test=negated_test,
         )
+
 
 class RemoveLines(cst.CSTTransformer):
     """
