@@ -7,3 +7,12 @@ python -m dynapyt.run_instrumentation \
 python -m dynapyt.run_analysis \
  --analysis trace_writes.TraceWritesAnalysis \
  --entry ../../tests/milestone1/task_1/main.py
+
+
+python -m dynapyt.run_instrumentation \
+ --analysis dynapyt.analyses.TraceAll.TraceAll \
+ --directory ../../tests/milestone1/task_1
+
+python -m dynapyt.run_analysis \
+ --analysis dynapyt.analyses.TraceAll.TraceAll \
+ --entry ../../tests/milestone1/task_1/main.py

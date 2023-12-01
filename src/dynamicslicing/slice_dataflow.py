@@ -1,11 +1,14 @@
 import libcst as cst
+from typing import Callable, List, Any, Union, Tuple
 from libcst._nodes.module import Module
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
+from dynapyt.utils.nodeLocator import get_node_by_location
 from libcst.metadata import (
     ParentNodeProvider,
     PositionProvider,
 )
+
 class CodeAnalyzerWrapper(cst.CSTTransformer):
     METADATA_DEPENDENCIES = (
         ParentNodeProvider,

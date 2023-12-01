@@ -8,7 +8,12 @@ from libcst.metadata import (
     PositionProvider,
 )
 import libcst.matchers as m
-
+import libcst as cst
+import libcst.matchers as m
+from libcst.metadata import PositionProvider
+from libcst.codemod._visitor import ContextAwareVisitor
+from typing import Dict, Pattern, Union
+from libcst.codemod._context import CodemodContext
 
 class OddIfNegation(m.MatcherDecoratableTransformer):
     """
@@ -30,7 +35,6 @@ class OddIfNegation(m.MatcherDecoratableTransformer):
         return updated_node.with_changes(
             test=negated_test,
         )
-
 
 class RemoveLines(cst.CSTTransformer):
     """
@@ -74,6 +78,20 @@ class RemoveLines(cst.CSTTransformer):
             return cst.RemoveFromParent()
         return updated_node
 
+class CommentFinder(cst.CSTVisitor):
+    METADATA_DEPENDENCIES = (
+        PositionProvider,
+        ParentNodeProvider
+    )
+     
+    def __init__(self, target_comment):
+        self.target_comment = target_comment
+        self.line_number = -1
+
+    def visit_Comment(self, node: cst.Comment) -> None:
+        if self.target_comment in node.value:
+            location = self.get_metadata(PositionProvider, node)
+            self.line_number = location.start.line
 
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
@@ -82,10 +100,18 @@ def negate_odd_ifs(code: str) -> str:
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
 
-
 def remove_lines(code: str, lines_to_keep: List[int]) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
     code_modifier = RemoveLines(lines_to_keep)
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
+
+def get_slicing_criterion_line(source_path: str) -> int:
+    with open(source_path, "r") as file:
+        code = file.read()
+    syntax_tree = cst.parse_module(code)
+    wrapper = cst.metadata.MetadataWrapper(syntax_tree)
+    comment_finder = CommentFinder("slicing criterion")
+    _ = wrapper.visit(comment_finder)
+    return comment_finder.line_number
