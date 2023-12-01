@@ -1,8 +1,6 @@
 def slice_me():
-    x = 1
     y = 2
-    if x < 4:
-        y += 2
-    return y # slicing criterion
+    z = 1
+    y += 2 + z # slicing criterion
 
 slice_me()

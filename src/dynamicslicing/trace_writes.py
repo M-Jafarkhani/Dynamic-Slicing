@@ -13,7 +13,6 @@ class VariableMetaData():
         self.active_definition = active_definition
         self.previous_definition = -1
 
-
 class LineMetaData():
     dependencies: List[int] = []
     slice_computed: bool
@@ -22,10 +21,11 @@ class LineMetaData():
         self.dependencies = dependencies
         self.slice_computed = False
 
-
 class TraceWritesAnalysis(BaseAnalysis):
     lines_info: Dict[int, LineMetaData] = dict()
     variables_info: Dict[str, VariableMetaData] = dict()
+    sliced_function_name = "slice_me"
+    static_lines: List[int] = list()
 
     def __init__(self) -> None:
         super(TraceWritesAnalysis, self).__init__()
@@ -87,15 +87,26 @@ class TraceWritesAnalysis(BaseAnalysis):
     def read_subscript(self, dyn_ast: str, iid: int, base: Any, sl: List[Union[int, Tuple]], val: Any) -> Any:
         pass
 
+    def pre_call(self, dyn_ast: str, iid: int, function: Callable, pos_args: Tuple, kw_args: Dict):    
+        location = self.iid_to_location(dyn_ast, iid)
+        if (function.__qualname__ == self.sliced_function_name):
+            self.static_lines.append(location.start_line)
+
+    def function_enter(self, dyn_ast: str, iid: int, args: List[Any], name: str, is_lambda: bool) -> None:
+        location = self.iid_to_location(dyn_ast, iid)
+        if (name == self.sliced_function_name):
+            self.static_lines.append(location.start_line)
+
     def end_execution(self) -> None:
         for key, value in self.variables_info.items():
             print(f"{key} -- {value.active_definition}")
         for key, value in self.lines_info.items():
             print(f"{key} -- {value.dependencies}")
-        filePath = next(iter(self.asts))
-        slice_line_number = get_slicing_criterion_line(filePath)
+        file_path = next(iter(self.asts))
+        slice_line_number = get_slicing_criterion_line(file_path)
         numbers_to_keep = self.compute_slice(slice_line_number)
         print(f"Number To Keep = {numbers_to_keep}")
+        print(f"Static Lines = {self.static_lines}")
 
     def extract_variables(self, dyn_ast: str, iid: int) -> List[str]:
         location = self.iid_to_location(dyn_ast, iid)
