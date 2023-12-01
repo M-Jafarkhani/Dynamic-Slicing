@@ -13,6 +13,7 @@ class VariableMetaData():
         self.active_definition = active_definition
         self.previous_definition = -1
 
+
 class LineMetaData():
     dependencies: List[int] = []
     slice_computed: bool
@@ -20,6 +21,7 @@ class LineMetaData():
     def __init__(self, dependencies: List[int]) -> None:
         self.dependencies = dependencies
         self.slice_computed = False
+
 
 class TraceWritesAnalysis(BaseAnalysis):
     lines_info: Dict[int, LineMetaData] = dict()
@@ -87,7 +89,7 @@ class TraceWritesAnalysis(BaseAnalysis):
     def read_subscript(self, dyn_ast: str, iid: int, base: Any, sl: List[Union[int, Tuple]], val: Any) -> Any:
         pass
 
-    def pre_call(self, dyn_ast: str, iid: int, function: Callable, pos_args: Tuple, kw_args: Dict):    
+    def pre_call(self, dyn_ast: str, iid: int, function: Callable, pos_args: Tuple, kw_args: Dict):
         location = self.iid_to_location(dyn_ast, iid)
         if (function.__qualname__ == self.sliced_function_name):
             self.static_lines.append(location.start_line)

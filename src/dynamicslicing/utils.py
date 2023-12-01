@@ -107,11 +107,11 @@ def remove_lines(code: str, lines_to_keep: List[int]) -> str:
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
 
-def get_slicing_criterion_line(source_path: str) -> int:
+def get_slicing_criterion_line(source_path: str, comment: str) -> int:
     with open(source_path, "r") as file:
         code = file.read()
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
-    comment_finder = CommentFinder("slicing criterion")
+    comment_finder = CommentFinder(comment)
     _ = wrapper.visit(comment_finder)
     return comment_finder.line_number

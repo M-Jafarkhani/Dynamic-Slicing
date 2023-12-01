@@ -6,6 +6,7 @@ import dynapyt.runtime as _rt
 _dynapyt_ast_ = "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/main.py" + ".orig"
 try:
     def slice_me():
+        _rt._func_entry_(_dynapyt_ast_, 0, [], "slice_me")
         x = _rt._write_(_dynapyt_ast_, 1, 1, [lambda: x])
         y = _rt._write_(_dynapyt_ast_, 2, 2, [lambda: y])
         x = _rt._write_(_dynapyt_ast_, 5, _rt._read_(_dynapyt_ast_, 3, lambda: x) + _rt._read_(_dynapyt_ast_, 4, lambda: y), [lambda: x]) 
@@ -17,7 +18,8 @@ try:
         z = _rt._write_(_dynapyt_ast_, 14, _rt._read_(_dynapyt_ast_, 13, lambda: y), [lambda: z])
         y = _rt._write_(_dynapyt_ast_, 16, _rt._read_(_dynapyt_ast_, 15, lambda: x), [lambda: y])
         return _rt._read_(_dynapyt_ast_, 17, lambda: y) 
+        _rt._func_exit_(_dynapyt_ast_, 0, "slice_me")
     
-    _rt._read_(_dynapyt_ast_, 18, lambda: slice_me)()
+    _rt._call_(_dynapyt_ast_, 32, _rt._read_(_dynapyt_ast_, 18, lambda: slice_me), False, [], {})
 except Exception as _dynapyt_exception_:
     _rt._catch_(_dynapyt_exception_)
