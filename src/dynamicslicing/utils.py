@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 import libcst as cst
 from libcst._nodes.statement import SimpleStatementLine, BaseStatement, For, If, Else, While
 from libcst.metadata import (
@@ -7,13 +7,33 @@ from libcst.metadata import (
 )
 import libcst.matchers as m
 
+class ElementMetaData():
+    active_definition: int
+    previous_definition: int
+    
+    def __init__(self, active_definition: int) -> None:
+        self.active_definition = active_definition
+        self.previous_definition = -1
+
+class AttributeMetaData():
+    active_definition: int
+    previous_definition: int
+    
+    def __init__(self, active_definition: int) -> None:
+        self.active_definition = active_definition
+        self.previous_definition = -1
+
 class VariableMetaData():
     active_definition: int
     previous_definition: int
+    elements: Dict[int, ElementMetaData] = dict()
+    attributes: Dict[int, AttributeMetaData] = dict()
 
     def __init__(self, active_definition: int) -> None:
         self.active_definition = active_definition
         self.previous_definition = -1
+        self.elements = dict()
+        self.attributes = dict()
 
 class LineMetaData():
     dependencies: List[int] = []
@@ -22,7 +42,8 @@ class LineMetaData():
     def __init__(self, dependencies: List[int]) -> None:
         self.dependencies = dependencies
         self.slice_computed = False
-        
+
+
 class OddIfNegation(m.MatcherDecoratableTransformer):
     """
     Negate the test of every if statement on an odd line.
@@ -44,6 +65,7 @@ class OddIfNegation(m.MatcherDecoratableTransformer):
             test=negated_test,
         )
 
+
 class RemoveLines(cst.CSTTransformer):
     """
     Remove lines that are not included in a given array.
@@ -53,45 +75,54 @@ class RemoveLines(cst.CSTTransformer):
         PositionProvider,
     )
 
-    def __init__(self, lines_to_keep: List[int]) -> None:
+    def __init__(self, lines_to_keep: List[int], slice_start_line: int, slice_end_line: int) -> None:
         self.lines_to_keep = lines_to_keep
+        self.slice_start_line = slice_start_line
+        self.slice_end_line = slice_end_line
 
+    def leave_Comment(self, original_node: cst.Comment, updated_node: cst.Comment) -> cst.Comment:
+        location = self.get_metadata(PositionProvider, original_node)
+        if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
+            return cst.RemoveFromParent()
+        return updated_node
+    
     def leave_For(self, original_node: For, updated_node: For) -> cst.For:
         location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
+        if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
             return cst.RemoveFromParent()
         return updated_node
 
     def leave_While(self, original_node: While, updated_node: While) -> cst.While:
         location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
+        if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
             return cst.RemoveFromParent()
         return updated_node
 
     def leave_If(self, original_node: If, updated_node: If) -> cst.If:
         location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
+        if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
             return cst.RemoveFromParent()
         return updated_node
 
     def leave_Else(self, original_node: Else, updated_node: Else) -> cst.Else:
         location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
+        if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
             return cst.RemoveFromParent()
         return updated_node
 
     def leave_SimpleStatementLine(self, original_node: SimpleStatementLine, updated_node: SimpleStatementLine) -> BaseStatement:
         location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
+        if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
             return cst.RemoveFromParent()
         return updated_node
+
 
 class CommentFinder(cst.CSTVisitor):
     METADATA_DEPENDENCIES = (
         PositionProvider,
         ParentNodeProvider
     )
-     
+
     def __init__(self, target_comment):
         self.target_comment = target_comment
         self.line_number = -1
@@ -101,6 +132,7 @@ class CommentFinder(cst.CSTVisitor):
             location = self.get_metadata(PositionProvider, node)
             self.line_number = location.start.line
 
+
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
@@ -108,12 +140,15 @@ def negate_odd_ifs(code: str) -> str:
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
 
-def remove_lines(code: str, lines_to_keep: List[int]) -> str:
+
+def remove_lines(code: str, lines_to_keep: List[int], slice_start_line: int, slice_end_line: int) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
-    code_modifier = RemoveLines(lines_to_keep)
+    code_modifier = RemoveLines(
+        lines_to_keep, slice_start_line, slice_end_line)
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
+
 
 def get_slicing_criterion_line(source_path: str, comment: str) -> int:
     with open(source_path, "r") as file:
