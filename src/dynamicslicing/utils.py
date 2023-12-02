@@ -6,7 +6,6 @@ from libcst.metadata import (
     PositionProvider,
 )
 import libcst.matchers as m
-from libcst.metadata import PositionProvider
 
 class VariableMetaData():
     active_definition: int

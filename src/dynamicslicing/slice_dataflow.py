@@ -16,7 +16,11 @@ class SliceDataflow(BaseAnalysis):
 
     def __init__(self, source_path: str = ""):
         super(SliceDataflow, self).__init__()
+        self.source = ""
         self.source_path = source_path
+        self.lines_info = dict()
+        self.variables_info = dict()
+        self.static_lines = list()
 
     def read(self, dyn_ast: str, iid: int, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
