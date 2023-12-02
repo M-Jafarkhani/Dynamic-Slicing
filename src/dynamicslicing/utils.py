@@ -1,20 +1,29 @@
 from typing import List
 import libcst as cst
-from libcst._flatten_sentinel import FlattenSentinel
 from libcst._nodes.statement import SimpleStatementLine, BaseStatement, For, If, Else, While
-from libcst._removal_sentinel import RemovalSentinel
 from libcst.metadata import (
     ParentNodeProvider,
     PositionProvider,
 )
 import libcst.matchers as m
-import libcst as cst
-import libcst.matchers as m
 from libcst.metadata import PositionProvider
-from libcst.codemod._visitor import ContextAwareVisitor
-from typing import Dict, Pattern, Union
-from libcst.codemod._context import CodemodContext
 
+class VariableMetaData():
+    active_definition: int
+    previous_definition: int
+
+    def __init__(self, active_definition: int) -> None:
+        self.active_definition = active_definition
+        self.previous_definition = -1
+
+class LineMetaData():
+    dependencies: List[int] = []
+    slice_computed: bool
+
+    def __init__(self, dependencies: List[int]) -> None:
+        self.dependencies = dependencies
+        self.slice_computed = False
+        
 class OddIfNegation(m.MatcherDecoratableTransformer):
     """
     Negate the test of every if statement on an odd line.

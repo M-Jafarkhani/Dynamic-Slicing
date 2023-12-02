@@ -1,29 +1,9 @@
 import libcst as cst
+import os
 from typing import Callable, Dict, List, Any, Union, Tuple
-from dynapyt.instrument.IIDs import IIDs
 from dynapyt.utils.nodeLocator import get_node_by_location
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
-from libcst.metadata import (
-    ParentNodeProvider,
-    PositionProvider,
-)
-from libcst._nodes.statement import SimpleStatementLine, BaseStatement, For, If, Else, While
-
-class VariableMetaData():
-    active_definition: int
-    previous_definition: int
-
-    def __init__(self, active_definition: int) -> None:
-        self.active_definition = active_definition
-        self.previous_definition = -1
-
-class LineMetaData():
-    dependencies: List[int] = []
-    slice_computed: bool
-
-    def __init__(self, dependencies: List[int]) -> None:
-        self.dependencies = dependencies
-        self.slice_computed = False
+from dynamicslicing.utils import LineMetaData, VariableMetaData, CommentFinder, remove_lines
 
 class SliceDataflow(BaseAnalysis):
     lines_info: Dict[int, LineMetaData] = dict()
@@ -34,13 +14,9 @@ class SliceDataflow(BaseAnalysis):
     source: str = ""
     source_path: str = ""
 
-    def __init__(self, source_path):
+    def __init__(self, source_path: str = ""):
         super(SliceDataflow, self).__init__()
-        if (source_path.endswith("program.py")):
-            self.iid_object = IIDs(source_path)
-            self.source_path = source_path
-            with open(source_path, "r") as file:
-                self.source = file.read()
+        self.source_path = source_path
 
     def read(self, dyn_ast: str, iid: int, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
@@ -115,17 +91,27 @@ class SliceDataflow(BaseAnalysis):
         for key, value in self.lines_info.items():
             print(f"{key} -- {value.dependencies}")
 
-        file_path = next(iter(self.asts))
+        self.source_path = next(iter(self.asts))
+        with open(self.source_path, "r") as file:
+            self.source = file.read()
+
         slice_line_number = self.get_slicing_criterion_line(
-            file_path, self.slicing_comment)
+            self.source, self.slicing_comment)
         numbers_to_keep = self.compute_slice(slice_line_number)
 
         print(f"Number To Keep = {numbers_to_keep}")
         print(f"Static Lines = {self.static_lines}")
 
-        sliced_code = self.remove_lines(
+        sliced_code = remove_lines(
             self.source, numbers_to_keep + self.static_lines)
+        
         self.create_sliced_file(sliced_code)
+
+        print(f"============")
+        print(f"")
+        print(sliced_code)
+        print(f"")
+        print(f"============")
 
     def extract_variables(self, dyn_ast: str, iid: int) -> List[str]:
         location = self.iid_to_location(dyn_ast, iid)
@@ -155,81 +141,17 @@ class SliceDataflow(BaseAnalysis):
         return list(set(result))
 
     def create_sliced_file(self, sliced_code: str) -> None:
-        file_path = self.source_path.replace("/program.py", "/sliced.py")
-        print(f'### {self.source_path} $$$')  
-        with open(file_path, 'w') as file:
+        slice_path: str = ""
+        directory, file_name_extension = os.path.split(self.source_path)
+        _, extension = os.path.splitext(file_name_extension)
+        if extension == ".orig":
+            slice_path = os.path.join(directory, "sliced.py")
+        with open(slice_path, 'w') as file:
             file.write(sliced_code)
-          
 
-    def remove_lines(self, code: str, lines_to_keep: List[int]) -> str:
-        syntax_tree = cst.parse_module(code)
-        wrapper = cst.metadata.MetadataWrapper(syntax_tree)
-        code_modifier = RemoveLines(lines_to_keep)
-        new_syntax_tree = wrapper.visit(code_modifier)
-        return new_syntax_tree.code
-
-    def get_slicing_criterion_line(self, source_path: str, comment: str) -> int:
-        with open(source_path, "r") as file:
-            code = file.read()
+    def get_slicing_criterion_line(self, code: str, comment: str) -> int:
         syntax_tree = cst.parse_module(code)
         wrapper = cst.metadata.MetadataWrapper(syntax_tree)
         comment_finder = CommentFinder(comment)
         _ = wrapper.visit(comment_finder)
-        return comment_finder.line_number   
-
-class RemoveLines(cst.CSTTransformer):
-    """
-    Remove lines that are not included in a given array.
-    """
-    METADATA_DEPENDENCIES = (
-        ParentNodeProvider,
-        PositionProvider,
-    )
-
-    def __init__(self, lines_to_keep: List[int]) -> None:
-        self.lines_to_keep = lines_to_keep
-
-    def leave_For(self, original_node: For, updated_node: For) -> cst.For:
-        location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
-            return cst.RemoveFromParent()
-        return updated_node
-
-    def leave_While(self, original_node: While, updated_node: While) -> cst.While:
-        location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
-            return cst.RemoveFromParent()
-        return updated_node
-
-    def leave_If(self, original_node: If, updated_node: If) -> cst.If:
-        location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
-            return cst.RemoveFromParent()
-        return updated_node
-
-    def leave_Else(self, original_node: Else, updated_node: Else) -> cst.Else:
-        location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
-            return cst.RemoveFromParent()
-        return updated_node
-
-    def leave_SimpleStatementLine(self, original_node: SimpleStatementLine, updated_node: SimpleStatementLine) -> BaseStatement:
-        location = self.get_metadata(PositionProvider, original_node)
-        if location.start.line not in self.lines_to_keep:
-            return cst.RemoveFromParent()
-        return updated_node
-
-class CommentFinder(cst.CSTVisitor):
-    METADATA_DEPENDENCIES = (
-        PositionProvider,
-        ParentNodeProvider
-    )
-     
-    def __init__(self, target_comment):
-        self.target_comment = target_comment
-        self.line_number = -1
-
-    def visit_Comment(self, node: cst.Comment) -> None:
-        if self.target_comment in node.value:
-            location = self.get_metadata(PositionProvider, node)
-            self.line_number = location.start.line
+        return comment_finder.line_number
