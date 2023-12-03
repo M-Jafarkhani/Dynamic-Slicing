@@ -45,7 +45,7 @@ class SliceDataflow(BaseAnalysis):
                                 dependencies.append(line.active_definition)
                         if (len(value.attributes) > 0):
                             for _, line in value.attributes.items():
-                                dependencies.append(line.active_definition)        
+                                dependencies.append(line.active_definition)
             if location.start_line in self.lines_info:
                 self.lines_info.get(
                     location.start_line).dependencies += dependencies
@@ -82,7 +82,9 @@ class SliceDataflow(BaseAnalysis):
                 dependencies: List[int] = []
                 dependencies.append(
                     self.variables_info[variable_name].active_definition)
-
+                if (index in self.variables_info):
+                    dependencies.append(
+                        self.variables_info[index].active_definition)
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
                         location.start_line).dependencies += dependencies
@@ -113,7 +115,9 @@ class SliceDataflow(BaseAnalysis):
                 dependencies: List[int] = []
                 dependencies.append(
                     self.variables_info[variable_name].active_definition)
-
+                if (index in self.variables_info):
+                    dependencies.append(
+                        self.variables_info[index].active_definition)
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
                         location.start_line).dependencies += dependencies
@@ -133,7 +137,7 @@ class SliceDataflow(BaseAnalysis):
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
-        
+
         if isinstance(node, cst.Attribute) and isinstance(node.value, cst.Name) and isinstance(node.attr, cst.Name):
             variable_name = node.value.value
             attribute_name = node.attr.value
@@ -211,7 +215,7 @@ class SliceDataflow(BaseAnalysis):
                 variables.append(node.target.value)
         return variables
 
-    def extract_lhs(self, dyn_ast: str, iid: int) -> (str, str, int):
+    def extract_lhs(self, dyn_ast: str, iid: int) -> (str, str, str):
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if (not isinstance(node, cst.Assign)) and (not isinstance(node, cst.AugAssign)):
@@ -238,17 +242,19 @@ class SliceDataflow(BaseAnalysis):
             return node.targets[0].target.value.value, None, self.extract_subscript(node.targets[0].target.slice[0])
         return None, None, None
 
-    def extract_subscript(self, node: cst.SubscriptElement) -> int:
-        if isinstance(node.slice, cst.Index) and \
-                isinstance(node.slice.value, cst.Integer):
+    def extract_subscript(self, node: cst.SubscriptElement) -> str:
+        if not isinstance(node.slice, cst.Index):
+            return None
+
+        if isinstance(node.slice.value, cst.Integer):
+            return str(node.slice.value.value)
+        elif isinstance(node.slice.value, cst.Name):
             return node.slice.value.value
-        elif isinstance(node.slice, cst.Index) and \
-            isinstance(node.slice.value, cst.UnaryOperation) and \
-                isinstance(node.slice.value.operator, cst.Minus) and \
-            isinstance(node.slice.value.expression, cst.Integer) and \
-            node.slice.value.expression.value == '1':
-            return -1
-        return None
+        elif isinstance(node.slice.value, cst.UnaryOperation) and \
+            isinstance(node.slice.value.operator, cst.Minus) and \
+                isinstance(node.slice.value.expression, cst.Integer) \
+                    and node.slice.value.expression.value == '1':
+            return '-1'
 
     def compute_slice(self, slice_line_number: int) -> List[int]:
         result: List[int] = list()

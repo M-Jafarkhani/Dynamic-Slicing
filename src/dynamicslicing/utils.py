@@ -7,26 +7,29 @@ from libcst.metadata import (
 )
 import libcst.matchers as m
 
+
 class ElementMetaData():
     active_definition: int
     previous_definition: int
-    
+
     def __init__(self, active_definition: int) -> None:
         self.active_definition = active_definition
         self.previous_definition = -1
+
 
 class AttributeMetaData():
     active_definition: int
     previous_definition: int
-    
+
     def __init__(self, active_definition: int) -> None:
         self.active_definition = active_definition
         self.previous_definition = -1
 
+
 class VariableMetaData():
     active_definition: int
     previous_definition: int
-    elements: Dict[int, ElementMetaData] = dict()
+    elements: Dict[str, ElementMetaData] = dict()
     attributes: Dict[int, AttributeMetaData] = dict()
 
     def __init__(self, active_definition: int) -> None:
@@ -34,6 +37,7 @@ class VariableMetaData():
         self.previous_definition = -1
         self.elements = dict()
         self.attributes = dict()
+
 
 class LineMetaData():
     dependencies: List[int] = []
@@ -85,7 +89,7 @@ class RemoveLines(cst.CSTTransformer):
         if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
             return cst.RemoveFromParent()
         return updated_node
-    
+
     def leave_For(self, original_node: For, updated_node: For) -> cst.For:
         location = self.get_metadata(PositionProvider, original_node)
         if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
