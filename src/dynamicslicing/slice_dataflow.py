@@ -39,6 +39,9 @@ class SliceDataflow(BaseAnalysis):
                 for key, value in self.variables_info.items():
                     if key == variable:
                         dependencies.append(value.active_definition)
+                        if (len(value.elements) > 0):
+                            for _, line in value.elements.items():
+                                dependencies.append(line.active_definition)
 
             if location.start_line in self.lines_info:
                 self.lines_info.get(
@@ -77,20 +80,30 @@ class SliceDataflow(BaseAnalysis):
                     self.variables_info[variable_name] = VariableMetaData(location.start_line)  
 
     def augmented_assignment(self, dyn_ast: str, iid: int, left: Any, op: str, right: Any) -> Any:
-        left_variable = self.extract_variables(dyn_ast, iid)
+        variable_name, property_name, index = self.extract_lhs(dyn_ast, iid)
         location = self.iid_to_location(dyn_ast, iid)
-        if (left_variable is not None):
-            dependencies: List[int] = []
-            for key, value in self.variables_info.items():
-                if key == left_variable[0]:
-                    dependencies.append(value.previous_definition)
-
-            if location.start_line in self.lines_info:
-                self.lines_info.get(
-                    location.start_line).dependencies += dependencies
+        if (variable_name is not None):
+            if (property_name is not None):
+                pass
+            elif (index is not None):
+                if (variable_name not in self.variables_info):
+                    raise "ERROR"
+                self.variables_info[variable_name].elements.update({index: ElementMetaData(location.start_line)})
+                dependencies: List[int] = []
+                dependencies.append(self.variables_info[variable_name].active_definition)
+                
+                if location.start_line in self.lines_info:
+                    self.lines_info.get(location.start_line).dependencies += dependencies
+                else:
+                    self.lines_info[location.start_line] = LineMetaData(dependencies)
             else:
-                self.lines_info[location.start_line] = LineMetaData(
-                    dependencies)
+                if (variable_name in self.variables_info):
+                    self.variables_info[variable_name].previous_definition = \
+                        self.variables_info[variable_name].active_definition
+                    self.variables_info[variable_name].active_definition = \
+                        location.start_line
+                else:
+                    self.variables_info[variable_name] = VariableMetaData(location.start_line) 
 
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
@@ -141,8 +154,6 @@ class SliceDataflow(BaseAnalysis):
         with open(self.source_path, "r") as file:
             self.source = file.read()
         
-        #print(cst.parse_module(self.source))
-        
         slice_line_number = self.get_slicing_criterion_line(
             self.source, self.slicing_comment)
         
@@ -153,8 +164,6 @@ class SliceDataflow(BaseAnalysis):
 
         sliced_code = remove_lines(
             self.source, lines_to_keep, self.slice_start_line, self.slice_end_line)
-
-        #print(sliced_code)
 
         self.create_sliced_file(sliced_code)
 
@@ -181,6 +190,8 @@ class SliceDataflow(BaseAnalysis):
         elif isinstance(node, cst.AugAssign):
             if isinstance(node.target, cst.Name):
                 return node.target.value, None, None
+            elif isinstance(node.target, cst.Subscript):
+                return node.target.value.value, None, self.extract_subscript(node.target.slice[0])
         elif not isinstance(node.targets[0], cst.AssignTarget):
             return None, None, None
         if isinstance(node.targets[0].target, cst.Name):
@@ -188,21 +199,20 @@ class SliceDataflow(BaseAnalysis):
         elif isinstance(node.targets[0].target, cst.Name):
             return node.targets[0].target.value, None, None        
         elif isinstance(node.targets[0].target, cst.Subscript):
-            if isinstance(node.targets[0].target.value, cst.Name):
-                variable_name = node.targets[0].target.value.value
-                slice_index: int = None 
-                if isinstance(node.targets[0].target.slice[0], cst.SubscriptElement) and \
-                    isinstance(node.targets[0].target.slice[0].slice, cst.Index):
-                        if isinstance(node.targets[0].target.slice[0].slice.value, cst.Integer):
-                            slice_index = node.targets[0].target.slice[0].slice.value.value
-                        elif isinstance(node.targets[0].target.slice[0].slice.value, cst.UnaryOperation) and \
-                                isinstance(node.targets[0].target.slice[0].slice.value.operator, cst.Minus) and \
-                                    isinstance(node.targets[0].target.slice[0].slice.value.expression, cst.Integer): 
-                                        slice_index = -1
-                        else:
-                            pass       
-                return variable_name, None, slice_index
+            return node.targets[0].target.value.value, None, self.extract_subscript(node.targets[0].target.slice[0])
         return None, None, None
+    
+    def extract_subscript(self, node: cst.SubscriptElement) -> int:
+        if isinstance(node.slice, cst.Index) and \
+            isinstance(node.slice.value, cst.Integer):
+                return node.slice.value.value
+        elif isinstance(node.slice, cst.Index) and \
+            isinstance(node.slice.value, cst.UnaryOperation) and \
+                isinstance(node.slice.value.operator, cst.Minus) and \
+                    isinstance(node.slice.value.expression, cst.Integer) and \
+                        node.slice.value.expression.value == '1':
+            return -1
+        return None
     
     def compute_slice(self, slice_line_number: int) -> List[int]:
         result: List[int] = list()

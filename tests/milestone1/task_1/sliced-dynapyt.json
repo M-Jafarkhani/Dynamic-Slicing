@@ -1,0 +1,68 @@
+{
+  "next_iid": 9,
+  "iid_to_location": {
+    "0": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 1,
+      "start_column": 0,
+      "end_line": 2,
+      "end_column": 15
+    },
+    "1": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 4,
+      "start_column": 0,
+      "end_line": 4,
+      "end_column": 8
+    },
+    "2": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 1,
+      "start_column": 0,
+      "end_line": 4,
+      "end_column": 15
+    },
+    "3": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 2,
+      "start_column": 4,
+      "end_line": 2,
+      "end_column": 31
+    },
+    "4": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 3,
+      "start_column": 4,
+      "end_line": 3,
+      "end_column": 8
+    },
+    "5": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 3,
+      "start_column": 4,
+      "end_line": 3,
+      "end_column": 12
+    },
+    "6": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 3,
+      "start_column": 4,
+      "end_line": 3,
+      "end_column": 17
+    },
+    "7": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 4,
+      "start_column": 11,
+      "end_line": 4,
+      "end_column": 15
+    },
+    "8": {
+      "file": "/Users/mahdijafarkhani/Documents/Master's/Semester 02/PA/Dynamic-Slicing/tests/milestone1/task_1/sliced.py.orig",
+      "start_line": 6,
+      "start_column": 0,
+      "end_line": 6,
+      "end_column": 8
+    }
+  }
+}
