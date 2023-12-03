@@ -52,7 +52,7 @@ class SliceDataflow(BaseAnalysis):
         if (location.start_line != location.end_line):
             return
         variable_name, property_name, index = self.extract_lhs(dyn_ast, iid)
-        print(f"{location.start_line} => {variable_name} - {property_name} - {index}")
+        
         if (variable_name is not None):
             if (property_name is not None):
                 pass
@@ -60,6 +60,13 @@ class SliceDataflow(BaseAnalysis):
                 if (variable_name not in self.variables_info):
                     raise "ERROR"
                 self.variables_info[variable_name].elements.update({index: ElementMetaData(location.start_line)})
+                dependencies: List[int] = []
+                dependencies.append(self.variables_info[variable_name].active_definition)
+                
+                if location.start_line in self.lines_info:
+                    self.lines_info.get(location.start_line).dependencies += dependencies
+                else:
+                    self.lines_info[location.start_line] = LineMetaData(dependencies)
             else:
                 if (variable_name in self.variables_info):
                     self.variables_info[variable_name].previous_definition = \
@@ -67,7 +74,7 @@ class SliceDataflow(BaseAnalysis):
                     self.variables_info[variable_name].active_definition = \
                         location.start_line
                 else:
-                    self.variables_info[variable_name] = VariableMetaData(location.start_line)    
+                    self.variables_info[variable_name] = VariableMetaData(location.start_line)  
 
     def augmented_assignment(self, dyn_ast: str, iid: int, left: Any, op: str, right: Any) -> Any:
         left_variable = self.extract_variables(dyn_ast, iid)
@@ -185,9 +192,15 @@ class SliceDataflow(BaseAnalysis):
                 variable_name = node.targets[0].target.value.value
                 slice_index: int = None 
                 if isinstance(node.targets[0].target.slice[0], cst.SubscriptElement) and \
-                    isinstance(node.targets[0].target.slice[0].slice, cst.Index) and \
-                        isinstance(node.targets[0].target.slice[0].slice.value, cst.Integer):
+                    isinstance(node.targets[0].target.slice[0].slice, cst.Index):
+                        if isinstance(node.targets[0].target.slice[0].slice.value, cst.Integer):
                             slice_index = node.targets[0].target.slice[0].slice.value.value
+                        elif isinstance(node.targets[0].target.slice[0].slice.value, cst.UnaryOperation) and \
+                                isinstance(node.targets[0].target.slice[0].slice.value.operator, cst.Minus) and \
+                                    isinstance(node.targets[0].target.slice[0].slice.value.expression, cst.Integer): 
+                                        slice_index = -1
+                        else:
+                            pass       
                 return variable_name, None, slice_index
         return None, None, None
     
