@@ -1,3 +1,4 @@
 
 *.pyc
 src/dynamicslicing/output.log
+tests/milestone1/task_1/main-dynapyt.json
