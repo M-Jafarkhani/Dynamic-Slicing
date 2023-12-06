@@ -106,6 +106,8 @@ class SliceDataflow(BaseAnalysis):
                         self.variables_info[variable_name].active_definition
                     self.variables_info[variable_name].active_definition = \
                         location.start_line
+                    self.variables_info[variable_name].elements.clear()
+                    self.variables_info[variable_name].attributes.clear()
                 else:
                     self.variables_info[variable_name] = VariableMetaData(
                         location.start_line)

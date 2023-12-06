@@ -1,0 +1,14 @@
+class Person:
+    def __init__(self, name, age, weight):
+        self.name = name
+        self.age = age
+        self.weight = weight
+            
+def slice_me():
+    mahdi = Person('Mahdi', 25, 65)
+    mahdi.weight = mahdi.age * 2
+    mahdi.age += 10
+    mahdi.age *= mahdi.weight
+    return mahdi.age # slicing criterion
+
+slice_me()
