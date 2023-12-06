@@ -30,7 +30,7 @@ class VariableMetaData():
     active_definition: int
     previous_definition: int
     elements: Dict[str, ElementMetaData] = dict()
-    attributes: Dict[int, AttributeMetaData] = dict()
+    attributes: Dict[str, AttributeMetaData] = dict()
 
     def __init__(self, active_definition: int) -> None:
         self.active_definition = active_definition

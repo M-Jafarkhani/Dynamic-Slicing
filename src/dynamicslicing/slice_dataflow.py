@@ -33,7 +33,6 @@ class SliceDataflow(BaseAnalysis):
         if (location.start_line != location.end_line):
             return
         read_variables = self.extract_variables(dyn_ast, iid)
-
         if (read_variables is not None):
             dependencies: List[int] = []
             for variable in read_variables:
@@ -63,7 +62,7 @@ class SliceDataflow(BaseAnalysis):
                 if (variable_name not in self.variables_info):
                     raise "ERROR"
                 self.variables_info[variable_name].attributes.update(
-                    {index: AttributeMetaData(location.start_line)})
+                    {property_name: AttributeMetaData(location.start_line)})
                 dependencies: List[int] = []
                 dependencies.append(
                     self.variables_info[variable_name].active_definition)
@@ -106,7 +105,22 @@ class SliceDataflow(BaseAnalysis):
         location = self.iid_to_location(dyn_ast, iid)
         if (variable_name is not None):
             if (property_name is not None):
-                pass
+                if (variable_name not in self.variables_info):
+                    raise "ERROR"
+                self.variables_info[variable_name].attributes.update(
+                    {property_name: AttributeMetaData(location.start_line)})
+                dependencies: List[int] = []
+                dependencies.append(
+                    self.variables_info[variable_name].active_definition)
+                if (f"{variable_name}.{property_name}" in self.variables_info):
+                    dependencies.append(
+                        self.variables_info[f"{variable_name}.{property_name}"].active_definition)
+                if location.start_line in self.lines_info:
+                    self.lines_info.get(
+                        location.start_line).dependencies += dependencies
+                else:
+                    self.lines_info[location.start_line] = LineMetaData(
+                        dependencies)  
             elif (index is not None):
                 if (variable_name not in self.variables_info):
                     raise "ERROR"
@@ -136,8 +150,7 @@ class SliceDataflow(BaseAnalysis):
 
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
-        node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
-
+        node = get_node_by_location(self._get_ast(dyn_ast)[0], location) 
         if isinstance(node, cst.Attribute) and isinstance(node.value, cst.Name) and isinstance(node.attr, cst.Name):
             variable_name = node.value.value
             attribute_name = node.attr.value
@@ -145,7 +158,7 @@ class SliceDataflow(BaseAnalysis):
                 if (variable_name in self.variables_info):
                     self.variables_info[variable_name].previous_definition = \
                         self.variables_info[variable_name].active_definition
-                    self.variables_info[variable_name].active_definition = location.start_line
+                    self.variables_info[variable_name].active_definition = location.start_line          
 
     def read_subscript(self, dyn_ast: str, iid: int, base: Any, sl: List[Union[int, Tuple]], val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
@@ -225,6 +238,9 @@ class SliceDataflow(BaseAnalysis):
                 return node.target.value, None, None
             elif isinstance(node.target, cst.Subscript):
                 return node.target.value.value, None, self.extract_subscript(node.target.slice[0])
+            elif isinstance(node.target, cst.Attribute):
+                if isinstance(node.target.value, cst.Name) and (node.target.attr, cst.Name):
+                    return node.target.value.value, node.target.attr.value, None
         elif not isinstance(node.targets[0], cst.AssignTarget):
             return None, None, None
         elif isinstance(node.targets[0].target, cst.Name):
