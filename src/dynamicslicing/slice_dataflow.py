@@ -8,8 +8,10 @@ from dynapyt.instrument.IIDs import IIDs
 from dynamicslicing.utils import AttributeMetaData, LineMetaData, VariableMetaData, CommentFinder, ElementMetaData, remove_lines
 
 Location = namedtuple(
-    "Location", ["file", "start_line", "start_column", "end_line", "end_column"]
+    "Location", ["file", "start_line",
+                 "start_column", "end_line", "end_column"]
 )
+
 
 class SliceDataflow(BaseAnalysis):
     lines_info: Dict[int, LineMetaData] = dict()
@@ -39,20 +41,20 @@ class SliceDataflow(BaseAnalysis):
         if (location.start_line != location.end_line):
             return
         read_variables = self.extract_variables(dyn_ast, iid)
-        variable_name, attribute_name = self.read_is_via_attribute(dyn_ast, iid)
+        _, attribute_name = self.read_is_via_attribute(dyn_ast, iid)
         if (read_variables is not None):
             dependencies: List[int] = []
             for variable in read_variables:
                 for key, value in self.variables_info.items():
                     if key == variable:
                         dependencies.append(value.active_definition)
-                        if attribute_name is None: 
+                        if attribute_name is None:
                             if (len(value.elements) > 0):
                                 for _, line in value.elements.items():
                                     dependencies.append(line.active_definition)
                             if (len(value.attributes) > 0):
                                 for _, line in value.attributes.items():
-                                    dependencies.append(line.active_definition)               
+                                    dependencies.append(line.active_definition)
             if location.start_line in self.lines_info:
                 self.lines_info.get(
                     location.start_line).dependencies += dependencies
@@ -128,7 +130,7 @@ class SliceDataflow(BaseAnalysis):
                         location.start_line).dependencies += dependencies
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
-                        dependencies)  
+                        dependencies)
             elif (index is not None):
                 if (variable_name not in self.variables_info):
                     raise "ERROR"
@@ -158,7 +160,7 @@ class SliceDataflow(BaseAnalysis):
 
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
-        node = get_node_by_location(self._get_ast(dyn_ast)[0], location) 
+        node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if isinstance(node, cst.Attribute) and isinstance(node.value, cst.Name) and isinstance(node.attr, cst.Name):
             variable_name = node.value.value
             attribute_name = node.attr.value
@@ -166,20 +168,21 @@ class SliceDataflow(BaseAnalysis):
                 if (variable_name in self.variables_info):
                     self.variables_info[variable_name].previous_definition = \
                         self.variables_info[variable_name].active_definition
-                    self.variables_info[variable_name].active_definition = location.start_line 
+                    self.variables_info[variable_name].active_definition = location.start_line
             dependencies: List[int] = []
             for variable in [variable_name]:
                 for key, value in self.variables_info.items():
                     if key == variable:
                         dependencies.append(value.active_definition)
                         if (attribute_name in value.attributes):
-                            dependencies.append(value.attributes[attribute_name].active_definition)
+                            dependencies.append(
+                                value.attributes[attribute_name].active_definition)
             if location.start_line in self.lines_info:
                 self.lines_info.get(
                     location.start_line).dependencies += dependencies
             else:
                 self.lines_info[location.start_line] = LineMetaData(
-                    dependencies)                   
+                    dependencies)
 
     def read_subscript(self, dyn_ast: str, iid: int, base: Any, sl: List[Union[int, Tuple]], val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
@@ -288,7 +291,7 @@ class SliceDataflow(BaseAnalysis):
         elif isinstance(node.slice.value, cst.UnaryOperation) and \
             isinstance(node.slice.value.operator, cst.Minus) and \
                 isinstance(node.slice.value.expression, cst.Integer) \
-                    and node.slice.value.expression.value == '1':
+            and node.slice.value.expression.value == '1':
             return '-1'
 
     def read_is_via_attribute(self, dyn_ast: str, iid: int) -> (str, str):
@@ -304,7 +307,8 @@ class SliceDataflow(BaseAnalysis):
         elif current_location.end_column > next_location.end_column:
             return None, None
         lines = self.source.split('\n')
-        expression = lines[current_location.start_line - 1][next_location.start_column:next_location.end_column]
+        expression = lines[current_location.start_line -
+                           1][next_location.start_column:next_location.end_column]
         node = cst.parse_statement(expression)
         if isinstance(node, cst.SimpleStatementLine):
             if isinstance(node.body[0], cst.Expr):
@@ -312,7 +316,7 @@ class SliceDataflow(BaseAnalysis):
                     if isinstance(node.body[0].value.value, cst.Name) and isinstance(node.body[0].value.attr, cst.Name):
                         return node.body[0].value.value.value, node.body[0].value.attr.value
         return None, None
-    
+
     def compute_slice(self, slice_line_number: int) -> List[int]:
         result: List[int] = list()
         result.append(slice_line_number)
@@ -345,9 +349,9 @@ class SliceDataflow(BaseAnalysis):
         if self.source_path == "":
             self.source_path = next(iter(self.asts))
 
-        if self.source == "":    
+        if self.source == "":
             with open(self.source_path, "r") as file:
                 self.source = file.read()
 
         if self.iids is None:
-            self.iids = IIDs(self.source_path).iid_to_location        
+            self.iids = IIDs(self.source_path).iid_to_location
