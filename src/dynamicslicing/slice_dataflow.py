@@ -1,6 +1,6 @@
-from collections import namedtuple
 import libcst as cst
-import os
+from collections import namedtuple
+from os import path
 from typing import Callable, Dict, List, Any, Union, Tuple
 from dynapyt.utils.nodeLocator import get_node_by_location
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
@@ -331,10 +331,10 @@ class SliceDataflow(BaseAnalysis):
 
     def create_sliced_file(self, sliced_code: str) -> None:
         slice_path: str = ""
-        directory, file_name_extension = os.path.split(self.source_path)
-        _, extension = os.path.splitext(file_name_extension)
+        directory, file_name_extension = path.split(self.source_path)
+        _, extension = path.splitext(file_name_extension)
         if extension == ".orig":
-            slice_path = os.path.join(directory, "sliced.py")
+            slice_path = path.join(directory, "sliced.py")
         with open(slice_path, 'w') as file:
             file.write(sliced_code)
 
