@@ -1,2 +1,0 @@
-Navigate to folder Dynamic-Slicing 
-pytest tests --only tests/milestone2 
