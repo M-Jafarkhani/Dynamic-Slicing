@@ -194,7 +194,7 @@ class SliceDataflow(BaseAnalysis):
             if (variable_name not in self.variables_info):
                 raise "ERROR"
             dependencies: List[int] = []
-            if (self.variables_info[variable_name].elements.get(str(sl[0])) is not None):
+            if False: #(self.variables_info[variable_name].elements.get(str(sl[0])) is not None):
                 dependencies.append(
                     self.variables_info[variable_name].elements[str(sl[0])].active_definition)
             else:
