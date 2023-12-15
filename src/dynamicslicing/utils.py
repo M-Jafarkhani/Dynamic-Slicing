@@ -31,13 +31,16 @@ class VariableMetaData():
     previous_definition: int
     elements: Dict[str, ElementMetaData] = dict()
     attributes: Dict[str, AttributeMetaData] = dict()
+    typeOf: str
+    references: List[str] = list()
 
-    def __init__(self, active_definition: int) -> None:
+    def __init__(self, active_definition: int, typeOf: str) -> None:
         self.active_definition = active_definition
         self.previous_definition = -1
         self.elements = dict()
         self.attributes = dict()
-
+        self.typeOf = typeOf
+        self.references = list()
 
 class LineMetaData():
     dependencies: List[int] = []
