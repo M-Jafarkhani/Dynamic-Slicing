@@ -120,7 +120,10 @@ class RemoveLines(cst.CSTTransformer):
 
     def leave_Else(self, original_node: Else, updated_node: Else) -> cst.Else:
         location = self.get_metadata(PositionProvider, original_node)
-        if (location.start.line not in self.lines_to_keep) and (self.slice_start_line <= location.start.line <= self.slice_end_line):
+        if (self.slice_start_line <= location.start.line <= self.slice_end_line):
+            for i in range(location.start.line, location.end.line + 1):
+                if i in self.lines_to_keep:
+                    return updated_node
             return cst.RemoveFromParent()
         return updated_node
 
