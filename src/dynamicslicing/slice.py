@@ -31,6 +31,8 @@ class Slice(BaseAnalysis):
     collections_modifiers_attributes = [
         "append", "extend", "insert", "remove", "pop", "clear", "reverse", "sort"]
     control_flow_stack = list()
+    control_flow_dict = dict()
+    start_analysis = False
 
     def __init__(self, source_path: str = ""):
         super(Slice, self).__init__()
@@ -41,11 +43,13 @@ class Slice(BaseAnalysis):
         self.slice_start_line = -1
         self.slice_end_line = -1
         self.control_flow_stack = list()
+        self.control_flow_dict = dict()
+        self.start_analysis = False
 
     def read(self, dyn_ast: str, iid: int, val: Any) -> Any:
-        location = self.iid_to_location(dyn_ast, iid)
-        if (location.start_line != location.end_line):
+        if self.can_run_analysis(dyn_ast, iid) == False:
             return
+        location = self.iid_to_location(dyn_ast, iid)
         read_variables = self.extract_variables(dyn_ast, iid)
         _, attribute_name = self.read_is_via_attribute(dyn_ast, iid)
         if (read_variables is not None):
@@ -65,15 +69,16 @@ class Slice(BaseAnalysis):
                                     dependencies.append(line.active_definition)
             if location.start_line in self.lines_info:
                 self.lines_info.get(
-                    location.start_line).dependencies += dependencies
+                    location.start_line).dependencies += list(set(dependencies))
+                self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
             else:
                 self.lines_info[location.start_line] = LineMetaData(
-                    dependencies)
+                    list(set(dependencies)))
 
     def write(self, dyn_ast: str, iid: int, old_vals: List[Callable], new_val: Any) -> Any:
-        location = self.iid_to_location(dyn_ast, iid)
-        if (location.start_line != location.end_line):
+        if self.can_run_analysis(dyn_ast, iid) == False:
             return
+        location = self.iid_to_location(dyn_ast, iid)
         lhs_variable, rhs_variable = self.reference_variable(dyn_ast, iid)
         if lhs_variable is not None and rhs_variable is not None and type(new_val).__name__ not in predefined_types:
             self.variables_info[rhs_variable].references.append(lhs_variable)
@@ -116,10 +121,11 @@ class Slice(BaseAnalysis):
                         self.variables_info[index].active_definition)
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
-                        location.start_line).dependencies += dependencies
+                        location.start_line).dependencies += list(set(dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
-                        dependencies)
+                        list(set(dependencies)))
             else:
                 if (variable_name in self.variables_info):
                     self.variables_info[variable_name].previous_definition = \
@@ -134,8 +140,10 @@ class Slice(BaseAnalysis):
                         location.start_line, type(new_val).__name__)
 
     def augmented_assignment(self, dyn_ast: str, iid: int, left: Any, op: str, right: Any) -> Any:
-        variable_name, property_name, index = self.extract_lhs(dyn_ast, iid)
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
         location = self.iid_to_location(dyn_ast, iid)
+        variable_name, property_name, index = self.extract_lhs(dyn_ast, iid)
         if (variable_name is not None):
             if (property_name is not None):
                 if (variable_name not in self.variables_info):
@@ -152,10 +160,11 @@ class Slice(BaseAnalysis):
                         self.variables_info[f"{variable_name}.{property_name}"].active_definition)
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
-                        location.start_line).dependencies += dependencies
+                        location.start_line).dependencies += list(set(dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
-                        dependencies)
+                        list(set(dependencies)))
             elif (index is not None):
                 if (variable_name not in self.variables_info):
                     raise "ERROR"
@@ -171,10 +180,11 @@ class Slice(BaseAnalysis):
                         self.variables_info[index].active_definition)
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
-                        location.start_line).dependencies += dependencies
+                        location.start_line).dependencies += list(set(dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
-                        dependencies)
+                        list(set(dependencies)))
             else:
                 dependencies: List[int] = []
                 for cf in self.control_flow_stack:
@@ -192,18 +202,21 @@ class Slice(BaseAnalysis):
 
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
-                        location.start_line).dependencies += dependencies
+                        location.start_line).dependencies += list(set(dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
-                        dependencies)    
+                        list(set(dependencies)))    
 
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if isinstance(node, cst.Attribute) and isinstance(node.value, cst.Name) and isinstance(node.attr, cst.Name):
             variable_name = node.value.value
             attribute_name = node.attr.value
-            if (attribute_name in self.collections_modifiers_attributes):
+            if (attribute_name in self.collections_modifiers_attributes) or (type(val).__name__ == "method"):
                 if (variable_name in self.variables_info):
                     self.variables_info[variable_name].previous_definition = \
                         self.variables_info[variable_name].active_definition
@@ -220,12 +233,15 @@ class Slice(BaseAnalysis):
                                 value.attributes[attribute_name].active_definition)
             if location.start_line in self.lines_info:
                 self.lines_info.get(
-                    location.start_line).dependencies += dependencies
+                    location.start_line).dependencies += list(set(dependencies))
+                self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
             else:
                 self.lines_info[location.start_line] = LineMetaData(
-                    dependencies)
+                    list(set(dependencies)))
 
     def read_subscript(self, dyn_ast: str, iid: int, base: Any, sl: List[Union[int, Tuple]], val: Any) -> Any:
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if isinstance(node, cst.Subscript) and isinstance(node.value, cst.Name):
@@ -244,16 +260,18 @@ class Slice(BaseAnalysis):
 
             if location.start_line in self.lines_info:
                 self.lines_info.get(
-                    location.start_line).dependencies += dependencies
+                    location.start_line).dependencies += list(set(dependencies))
+                self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
             else:
                 self.lines_info[location.start_line] = LineMetaData(
-                    dependencies)
+                    list(set(dependencies)))
 
     def function_enter(self, dyn_ast: str, iid: int, args: List[Any], name: str, is_lambda: bool) -> None:
         location = self.iid_to_location(dyn_ast, iid)
         if (name == self.sliced_function_name):
             self.slice_start_line = location.start_line + 1
             self.slice_end_line = location.end_line
+            self.start_analysis = True
 
     def end_execution(self) -> None:
         for key, value in self.variables_info.items():
@@ -279,36 +297,43 @@ class Slice(BaseAnalysis):
         self.create_sliced_file(sliced_code)
 
     def enter_if(self, dyn_ast: str, iid: int, cond_value: bool) -> Optional[bool]:
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
         location = self.iid_to_location(dyn_ast, iid)
-        #print(f"{get_node_by_location(self._get_ast(dyn_ast)[0], location)}")
-        self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
-        print("Enter")
-        for i in self.control_flow_stack:
-            print(f"Current {i.start_line} === {i.iid}")
-        print("#####")    
+        if iid not in self.control_flow_dict:
+            self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
+            self.control_flow_dict[iid] = location.start_line
     
     def exit_if(self, dyn_ast, iid):
-        location = self.iid_to_location(dyn_ast, iid)
-        #print(f"{get_node_by_location(self._get_ast(dyn_ast)[0], location)}")
-        self.control_flow_stack = [x for x in self.control_flow_stack if not x.iid == iid]
-        print("Exit")
-        for i in self.control_flow_stack:
-            print(f"Current {i.start_line} === {i.iid}")
-        print("=====")  
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
+        self.remove_last_control_flow(iid)
     
-    def enter_for(
-        self, dyn_ast: str, iid: int, next_value: Any, iterable: Iterable
-    ) -> Optional[Any]:
-        pass
+    def enter_for(self, dyn_ast: str, iid: int, next_value: Any, iterable: Iterable) -> Optional[Any]:
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
+        location = self.iid_to_location(dyn_ast, iid)
+        if iid not in self.control_flow_dict:
+            self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
+            self.control_flow_dict[iid] = location.start_line
     
     def exit_for(self, dyn_ast, iid):
-        pass
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
+        self.remove_last_control_flow(iid)
 
     def enter_while(self, dyn_ast: str, iid: int, cond_value: bool) -> Optional[bool]:
-        pass
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
+        location = self.iid_to_location(dyn_ast, iid)
+        if iid not in self.control_flow_dict:
+            self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
+            self.control_flow_dict[iid] = location.start_line
 
     def exit_while(self, dyn_ast, iid):
-        pass
+        if self.can_run_analysis(dyn_ast, iid) == False:
+            return
+        self.remove_last_control_flow(iid)
 
     def reference_variable(self, dyn_ast: str, iid: int) -> (str, str):
         location = self.iid_to_location(dyn_ast, iid)
@@ -430,6 +455,18 @@ class Slice(BaseAnalysis):
         _ = wrapper.visit(comment_finder)
         return comment_finder.line_number
 
+    def remove_last_control_flow(self, iid: int) -> None:
+        if iid not in self.control_flow_dict:
+            return None
+        
+        while True:
+            current = self.control_flow_stack.pop()
+            self.control_flow_dict.pop(current.iid)
+            if current.iid == iid:
+                break
+            else:
+                continue
+
     def prepare_file_attributes(self):
         if self.source_path == "":
             self.source_path = next(iter(self.asts))
@@ -440,3 +477,13 @@ class Slice(BaseAnalysis):
 
         if self.iids is None:
             self.iids = IIDs(self.source_path).iid_to_location
+
+    def can_run_analysis(self, dyn_ast: str, iid: int) -> bool:
+        if self.start_analysis == False:
+            return False
+        location = self.iid_to_location(dyn_ast, iid)
+        if (location.start_line < self.slice_start_line):
+            return False
+        if (location.start_line > self.slice_end_line):
+            return False
+        return True
