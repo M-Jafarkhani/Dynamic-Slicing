@@ -1,11 +1,12 @@
 import libcst as cst
 from collections import namedtuple
 from os import path
-from typing import Callable, Dict, List, Any, Union, Tuple
+from collections import deque
+from typing import Callable, Dict, Iterable, List, Any, Optional, Union, Tuple
 from dynapyt.utils.nodeLocator import get_node_by_location
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
-from dynamicslicing.utils import AttributeMetaData, LineMetaData, VariableMetaData, CommentFinder, ElementMetaData, remove_lines
+from dynamicslicing.utils import AttributeMetaData, ControlFlowMetaData, LineMetaData, VariableMetaData, CommentFinder, ElementMetaData, remove_lines
 
 Location = namedtuple(
     "Location", ["file", "start_line",
@@ -29,6 +30,7 @@ class SliceDataflow(BaseAnalysis):
     iids: Dict[Location, int] = None
     collections_modifiers_attributes = [
         "append", "extend", "insert", "remove", "pop", "clear", "reverse", "sort"]
+    control_flow_stack = list()
 
     def __init__(self, source_path: str = ""):
         super(SliceDataflow, self).__init__()
@@ -38,6 +40,7 @@ class SliceDataflow(BaseAnalysis):
         self.variables_info = dict()
         self.slice_start_line = -1
         self.slice_end_line = -1
+        self.control_flow_stack = list()
 
     def read(self, dyn_ast: str, iid: int, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
@@ -47,6 +50,8 @@ class SliceDataflow(BaseAnalysis):
         _, attribute_name = self.read_is_via_attribute(dyn_ast, iid)
         if (read_variables is not None):
             dependencies: List[int] = []
+            for cf in self.control_flow_stack:
+                dependencies.append(cf.start_line)
             for variable in read_variables:
                 for key, value in self.variables_info.items():
                     if key == variable:
@@ -84,6 +89,8 @@ class SliceDataflow(BaseAnalysis):
                 self.variables_info[variable_name].attributes.update(
                     {property_name: AttributeMetaData(location.start_line)})
                 dependencies: List[int] = []
+                for cf in self.control_flow_stack:
+                    dependencies.append(cf.start_line)
                 dependencies.append(
                     self.variables_info[variable_name].active_definition)
                 if location.start_line in self.lines_info:
@@ -98,6 +105,8 @@ class SliceDataflow(BaseAnalysis):
                 self.variables_info[variable_name].elements.update(
                     {index: ElementMetaData(location.start_line)})
                 dependencies: List[int] = []
+                for cf in self.control_flow_stack:
+                    dependencies.append(cf.start_line)
                 dependencies.append(
                     self.variables_info[variable_name].active_definition)
                 self.variables_info[variable_name].previous_definition = self.variables_info[variable_name].active_definition
@@ -134,6 +143,8 @@ class SliceDataflow(BaseAnalysis):
                 self.variables_info[variable_name].attributes.update(
                     {property_name: AttributeMetaData(location.start_line)})
                 dependencies: List[int] = []
+                for cf in self.control_flow_stack:
+                    dependencies.append(cf.start_line)
                 dependencies.append(
                     self.variables_info[variable_name].active_definition)
                 if (f"{variable_name}.{property_name}" in self.variables_info):
@@ -151,6 +162,8 @@ class SliceDataflow(BaseAnalysis):
                 self.variables_info[variable_name].elements.update(
                     {index: ElementMetaData(location.start_line)})
                 dependencies: List[int] = []
+                for cf in self.control_flow_stack:
+                    dependencies.append(cf.start_line)
                 dependencies.append(
                     self.variables_info[variable_name].active_definition)
                 if (index in self.variables_info):
@@ -163,7 +176,11 @@ class SliceDataflow(BaseAnalysis):
                     self.lines_info[location.start_line] = LineMetaData(
                         dependencies)
             else:
+                dependencies: List[int] = []
+                for cf in self.control_flow_stack:
+                    dependencies.append(cf.start_line)
                 if (variable_name in self.variables_info):
+                    dependencies.append(self.variables_info[variable_name].previous_definition)
                     self.variables_info[variable_name].previous_definition = \
                         self.variables_info[variable_name].active_definition
                     self.variables_info[variable_name].active_definition = \
@@ -171,6 +188,14 @@ class SliceDataflow(BaseAnalysis):
                 else:
                     self.variables_info[variable_name] = VariableMetaData(
                         location.start_line, None)
+                    dependencies.append(location.start_line)
+
+                if location.start_line in self.lines_info:
+                    self.lines_info.get(
+                        location.start_line).dependencies += dependencies
+                else:
+                    self.lines_info[location.start_line] = LineMetaData(
+                        dependencies)    
 
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
@@ -184,6 +209,8 @@ class SliceDataflow(BaseAnalysis):
                         self.variables_info[variable_name].active_definition
                     self.variables_info[variable_name].active_definition = location.start_line
             dependencies: List[int] = []
+            for cf in self.control_flow_stack:
+                dependencies.append(cf.start_line)
             for variable in [variable_name]:
                 for key, value in self.variables_info.items():
                     if key == variable:
@@ -206,6 +233,8 @@ class SliceDataflow(BaseAnalysis):
             if (variable_name not in self.variables_info):
                 raise "ERROR"
             dependencies: List[int] = []
+            for cf in self.control_flow_stack:
+                dependencies.append(cf.start_line)
             if (self.variables_info[variable_name].elements.get(str(sl[0])) is not None):
                 dependencies.append(
                     self.variables_info[variable_name].elements[str(sl[0])].active_definition)
@@ -248,6 +277,39 @@ class SliceDataflow(BaseAnalysis):
             self.source, lines_to_keep, self.slice_start_line, self.slice_end_line)
 
         self.create_sliced_file(sliced_code)
+
+    def enter_if(self, dyn_ast: str, iid: int, cond_value: bool) -> Optional[bool]:
+        location = self.iid_to_location(dyn_ast, iid)
+        #print(f"{get_node_by_location(self._get_ast(dyn_ast)[0], location)}")
+        self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
+        print("Enter")
+        for i in self.control_flow_stack:
+            print(f"Current {i.start_line} === {i.iid}")
+        print("#####")    
+    
+    def exit_if(self, dyn_ast, iid):
+        location = self.iid_to_location(dyn_ast, iid)
+        #print(f"{get_node_by_location(self._get_ast(dyn_ast)[0], location)}")
+        self.control_flow_stack = [x for x in self.control_flow_stack if not x.iid == iid]
+        print("Exit")
+        for i in self.control_flow_stack:
+            print(f"Current {i.start_line} === {i.iid}")
+        print("=====")  
+    
+    def enter_for(
+        self, dyn_ast: str, iid: int, next_value: Any, iterable: Iterable
+    ) -> Optional[Any]:
+        pass
+    
+    def exit_for(self, dyn_ast, iid):
+        pass
+
+    def enter_while(self, dyn_ast: str, iid: int, cond_value: bool) -> Optional[bool]:
+        pass
+
+    def exit_while(self, dyn_ast, iid):
+        pass
+
 
     def reference_variable(self, dyn_ast: str, iid: int) -> (str, str):
         location = self.iid_to_location(dyn_ast, iid)
