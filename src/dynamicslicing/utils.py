@@ -7,6 +7,7 @@ from libcst.metadata import (
 )
 import libcst.matchers as m
 
+
 class ControlFlowMetaData():
     start_line: int
     iid: int
@@ -14,6 +15,7 @@ class ControlFlowMetaData():
     def __init__(self, start_line: int, iid: int) -> None:
         self.start_line = start_line
         self.iid = iid
+
 
 class ElementMetaData():
     active_definition: int
@@ -48,6 +50,7 @@ class VariableMetaData():
         self.attributes = dict()
         self.typeOf = typeOf
         self.references = list()
+
 
 class LineMetaData():
     dependencies: List[int] = []

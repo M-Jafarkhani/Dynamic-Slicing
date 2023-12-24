@@ -1,7 +1,6 @@
 import libcst as cst
 from collections import namedtuple
 from os import path
-from collections import deque
 from typing import Callable, Dict, Iterable, List, Any, Optional, Union, Tuple
 from dynapyt.utils.nodeLocator import get_node_by_location
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
@@ -14,7 +13,7 @@ Location = namedtuple(
 )
 
 predefined_types = ["str", "bytes", "bytearray", "int", "float",
-                      "complex", "list", "tuple", "dict", "set", "frozenset", "range"]
+                    "complex", "list", "tuple", "dict", "set", "frozenset", "range"]
 
 
 class Slice(BaseAnalysis):
@@ -70,7 +69,8 @@ class Slice(BaseAnalysis):
             if location.start_line in self.lines_info:
                 self.lines_info.get(
                     location.start_line).dependencies += list(set(dependencies))
-                self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
+                self.lines_info.get(location.start_line).dependencies = list(
+                    set(self.lines_info.get(location.start_line).dependencies))
             else:
                 self.lines_info[location.start_line] = LineMetaData(
                     list(set(dependencies)))
@@ -122,7 +122,8 @@ class Slice(BaseAnalysis):
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
                         location.start_line).dependencies += list(set(dependencies))
-                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(
+                        set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
                         list(set(dependencies)))
@@ -161,7 +162,8 @@ class Slice(BaseAnalysis):
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
                         location.start_line).dependencies += list(set(dependencies))
-                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(
+                        set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
                         list(set(dependencies)))
@@ -181,7 +183,8 @@ class Slice(BaseAnalysis):
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
                         location.start_line).dependencies += list(set(dependencies))
-                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(
+                        set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
                         list(set(dependencies)))
@@ -190,7 +193,8 @@ class Slice(BaseAnalysis):
                 for cf in self.control_flow_stack:
                     dependencies.append(cf.start_line)
                 if (variable_name in self.variables_info):
-                    dependencies.append(self.variables_info[variable_name].previous_definition)
+                    dependencies.append(
+                        self.variables_info[variable_name].previous_definition)
                     self.variables_info[variable_name].previous_definition = \
                         self.variables_info[variable_name].active_definition
                     self.variables_info[variable_name].active_definition = \
@@ -203,10 +207,11 @@ class Slice(BaseAnalysis):
                 if location.start_line in self.lines_info:
                     self.lines_info.get(
                         location.start_line).dependencies += list(set(dependencies))
-                    self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
+                    self.lines_info.get(location.start_line).dependencies = list(
+                        set(self.lines_info.get(location.start_line).dependencies))
                 else:
                     self.lines_info[location.start_line] = LineMetaData(
-                        list(set(dependencies)))    
+                        list(set(dependencies)))
 
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
         if self.can_run_analysis(dyn_ast, iid) == False:
@@ -234,7 +239,8 @@ class Slice(BaseAnalysis):
             if location.start_line in self.lines_info:
                 self.lines_info.get(
                     location.start_line).dependencies += list(set(dependencies))
-                self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
+                self.lines_info.get(location.start_line).dependencies = list(
+                    set(self.lines_info.get(location.start_line).dependencies))
             else:
                 self.lines_info[location.start_line] = LineMetaData(
                     list(set(dependencies)))
@@ -261,7 +267,8 @@ class Slice(BaseAnalysis):
             if location.start_line in self.lines_info:
                 self.lines_info.get(
                     location.start_line).dependencies += list(set(dependencies))
-                self.lines_info.get(location.start_line).dependencies = list(set(self.lines_info.get(location.start_line).dependencies))
+                self.lines_info.get(location.start_line).dependencies = list(
+                    set(self.lines_info.get(location.start_line).dependencies))
             else:
                 self.lines_info[location.start_line] = LineMetaData(
                     list(set(dependencies)))
@@ -301,22 +308,24 @@ class Slice(BaseAnalysis):
             return
         location = self.iid_to_location(dyn_ast, iid)
         if iid not in self.control_flow_dict:
-            self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
+            self.control_flow_stack.append(
+                ControlFlowMetaData(location.start_line, iid))
             self.control_flow_dict[iid] = location.start_line
-    
+
     def exit_if(self, dyn_ast, iid):
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         self.remove_last_control_flow(iid)
-    
+
     def enter_for(self, dyn_ast: str, iid: int, next_value: Any, iterable: Iterable) -> Optional[Any]:
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
         if iid not in self.control_flow_dict:
-            self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
+            self.control_flow_stack.append(
+                ControlFlowMetaData(location.start_line, iid))
             self.control_flow_dict[iid] = location.start_line
-    
+
     def exit_for(self, dyn_ast, iid):
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
@@ -327,7 +336,8 @@ class Slice(BaseAnalysis):
             return
         location = self.iid_to_location(dyn_ast, iid)
         if iid not in self.control_flow_dict:
-            self.control_flow_stack.append(ControlFlowMetaData(location.start_line,iid))
+            self.control_flow_stack.append(
+                ControlFlowMetaData(location.start_line, iid))
             self.control_flow_dict[iid] = location.start_line
 
     def exit_while(self, dyn_ast, iid):
@@ -458,7 +468,7 @@ class Slice(BaseAnalysis):
     def remove_last_control_flow(self, iid: int) -> None:
         if iid not in self.control_flow_dict:
             return None
-        
+
         while True:
             current = self.control_flow_stack.pop()
             self.control_flow_dict.pop(current.iid)
