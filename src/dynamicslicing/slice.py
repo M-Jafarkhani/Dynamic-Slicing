@@ -7,16 +7,14 @@ from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
 from dynamicslicing.utils import AttributeMetaData, ControlFlowMetaData, LineMetaData, VariableMetaData, CommentFinder, ElementMetaData, remove_lines
 
-Location = namedtuple(
-    "Location", ["file", "start_line",
-                 "start_column", "end_line", "end_column"]
-)
-
-predefined_types = ["str", "bytes", "bytearray", "int", "float",
-                    "complex", "list", "tuple", "dict", "set", "frozenset", "range"]
-
-
 class Slice(BaseAnalysis):
+    Location = namedtuple(
+        "Location", ["file", "start_line",
+                     "start_column", "end_line", "end_column"])
+    immutable_types = ["int", "float", "complex", "bool", "str",
+                       "bytes", "tuple", "frozenset"]
+    collections_modifiers_attributes = [
+        "append", "extend", "insert", "remove", "pop", "clear", "reverse", "sort"]
     lines_info: Dict[int, LineMetaData] = dict()
     variables_info: Dict[str, VariableMetaData] = dict()
     sliced_function_name = "slice_me"
@@ -27,8 +25,6 @@ class Slice(BaseAnalysis):
     source: str = ""
     source_path: str = ""
     iids: Dict[Location, int] = None
-    collections_modifiers_attributes = [
-        "append", "extend", "insert", "remove", "pop", "clear", "reverse", "sort"]
     control_flow_stack = list()
     control_flow_dict = dict()
     start_analysis = False
@@ -79,9 +75,7 @@ class Slice(BaseAnalysis):
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
-        lhs_variable, rhs_variable = self.reference_variable(dyn_ast, iid)
-        if lhs_variable is not None and rhs_variable is not None and type(new_val).__name__ not in predefined_types:
-            self.variables_info[rhs_variable].references.append(lhs_variable)
+
         variable_name, property_name, index = self.extract_lhs(dyn_ast, iid)
         if (variable_name is not None):
             if (property_name is not None):
@@ -139,6 +133,18 @@ class Slice(BaseAnalysis):
                 else:
                     self.variables_info[variable_name] = VariableMetaData(
                         location.start_line, type(new_val).__name__)
+
+                lhs_variable, rhs_variable = self.reference_variable(
+                    dyn_ast, iid)
+
+                if lhs_variable is not None and rhs_variable is not None and type(new_val).__name__ not in self.immutable_types:
+                    self.variables_info[rhs_variable].references.append(
+                        lhs_variable)
+                    if lhs_variable not in self.variables_info:
+                        self.variables_info[lhs_variable] = VariableMetaData(
+                            location.start_line, type(new_val).__name__)
+                    self.variables_info[lhs_variable].references.append(
+                        rhs_variable)
 
     def augmented_assignment(self, dyn_ast: str, iid: int, left: Any, op: str, right: Any) -> Any:
         if self.can_run_analysis(dyn_ast, iid) == False:
@@ -222,20 +228,26 @@ class Slice(BaseAnalysis):
             variable_name = node.value.value
             attribute_name = node.attr.value
             if (attribute_name in self.collections_modifiers_attributes) or (type(val).__name__ == "method"):
-                if (variable_name in self.variables_info):
-                    self.variables_info[variable_name].previous_definition = \
-                        self.variables_info[variable_name].active_definition
-                    self.variables_info[variable_name].active_definition = location.start_line
+                previous_definition = self.variables_info[variable_name].active_definition
+                self.variables_info[variable_name].previous_definition = previous_definition
+                self.variables_info[variable_name].active_definition = location.start_line
+                for reference in self.variables_info[variable_name].references:
+                    previous_definition = self.variables_info[reference].active_definition
+                    self.variables_info[reference].previous_definition = previous_definition
+                    self.variables_info[reference].active_definition = location.start_line
             dependencies: List[int] = []
             for cf in self.control_flow_stack:
                 dependencies.append(cf.start_line)
-            for variable in [variable_name]:
-                for key, value in self.variables_info.items():
-                    if key == variable:
-                        dependencies.append(value.active_definition)
-                        if (attribute_name in value.attributes):
-                            dependencies.append(
-                                value.attributes[attribute_name].active_definition)
+
+            dependencies.append(
+                self.variables_info[variable_name].active_definition)
+            if (attribute_name in self.variables_info[variable_name].attributes):
+                dependencies.append(
+                    self.variables_info[variable_name].attributes[attribute_name].active_definition)
+            for reference in self.variables_info[variable_name].references:
+                dependencies.append(
+                    self.variables_info[reference].previous_definition)
+
             if location.start_line in self.lines_info:
                 self.lines_info.get(
                     location.start_line).dependencies += list(set(dependencies))

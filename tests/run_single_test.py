@@ -31,12 +31,13 @@ def test_runner(directory_pair: Tuple[str, str], capsys):
 
     # gather hooks used by the analysis
     module_prefix = rel_dir.replace(sep, ".")
-    if module_prefix.startswith("milestone2"):
-        module_name = "dynamicslicing.slice_dataflow"
-    elif module_prefix.startswith("milestone3"):
-        module_name = "dynamicslicing.slice"
-    else:
-        pytest.fail(f"Could not determine module name for {rel_dir}")
+    module_name = "dynamicslicing.slice"
+    # if module_prefix.startswith("milestone2"):
+    #     module_name = "dynamicslicing.slice_dataflow"
+    # elif module_prefix.startswith("milestone3"):
+    #     module_name = "dynamicslicing.slice"
+    # else:
+    #     pytest.fail(f"Could not determine module name for {rel_dir}")
     module = import_module(module_name)
     analysis_classes = getmembers(
         module, lambda c: isclass(c) and issubclass(c, BaseAnalysis) and c is not BaseAnalysis
