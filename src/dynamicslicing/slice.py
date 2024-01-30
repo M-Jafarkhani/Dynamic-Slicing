@@ -9,7 +9,7 @@ from dynamicslicing.utils import AttributeMetaData, ControlFlowMetaData, LineMet
 
 class Slice(BaseAnalysis):
     """
-    This class runs slicing algorithm on a Python files, with a specified comment pointing to slicing critrion, 
+    This class runs slicing algorithm on a Python files, with a specified comment pointing to slicing criterion, 
     and creates another Python file named sliced.py with sliced code. This class covers both data and control flow analysis.
 
     Attributes
@@ -36,7 +36,7 @@ class Slice(BaseAnalysis):
         A fixed comment which indicates the line which the slice should be computed
 
     static_lines: List[int]
-        A list of line numbers which are out of slicing critrion
+        A list of line numbers which are out of slicing criterion
 
     slice_start_line: int
         The starting line number of slicing
@@ -823,7 +823,7 @@ class Slice(BaseAnalysis):
 
     def compute_slice(self, slice_line_number: int) -> List[int]:
         """A recursive method for computing the slice based on the meta-data that was computed during the execution. 
-        We should call this method with the line number that contains the slicing critrion.
+        We should call this method with the line number that contains the slicing criterion.
 
         Parameters
         ----------
