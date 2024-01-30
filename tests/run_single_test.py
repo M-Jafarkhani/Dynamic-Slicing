@@ -31,13 +31,12 @@ def test_runner(directory_pair: Tuple[str, str], capsys):
 
     # gather hooks used by the analysis
     module_prefix = rel_dir.replace(sep, ".")
-    module_name = "dynamicslicing.slice"
-    # if module_prefix.startswith("milestone2"):
-    #     module_name = "dynamicslicing.slice_dataflow"
-    # elif module_prefix.startswith("milestone3"):
-    #     module_name = "dynamicslicing.slice"
-    # else:
-    #     pytest.fail(f"Could not determine module name for {rel_dir}")
+    if module_prefix.startswith("milestone2"):
+        module_name = "dynamicslicing.slice_dataflow"
+    elif module_prefix.startswith("milestone3"):
+        module_name = "dynamicslicing.slice"
+    else:
+        pytest.fail(f"Could not determine module name for {rel_dir}")
     module = import_module(module_name)
     analysis_classes = getmembers(
         module, lambda c: isclass(c) and issubclass(c, BaseAnalysis) and c is not BaseAnalysis
@@ -46,7 +45,6 @@ def test_runner(directory_pair: Tuple[str, str], capsys):
     # instrument
     program_file = join(abs_dir, "program.py")
     orig_program_file = join(abs_dir, "program.py.orig")
-
     # make sure to instrument the uninstrumented version
     with open(program_file, "r") as file:
         src = file.read()
@@ -65,7 +63,7 @@ def test_runner(directory_pair: Tuple[str, str], capsys):
     _rt.analyses = None
     _rt.set_analysis(analysis_instances)
     captured = capsys.readouterr()  # clear stdout
-    #print(f"Before analysis: {captured.out}")  # for debugging purposes
+    # print(f"Before analysis: {captured.out}")  # for debugging purposes
     for analysis_instance in analysis_instances:
         if hasattr(analysis_instance, "begin_execution"):
             analysis_instance.begin_execution()

@@ -8,6 +8,61 @@ from dynapyt.instrument.IIDs import IIDs
 from dynamicslicing.utils import AttributeMetaData, ControlFlowMetaData, LineMetaData, VariableMetaData, CommentFinder, ElementMetaData, remove_lines
 
 class Slice(BaseAnalysis):
+    """
+    This class runs slicing algorithm on a Python files, with a specified comment pointing to slicing critrion, 
+    and creates another Python file named sliced.py with sliced code. This class covers both data and control flow analysis.
+
+    Attributes
+    ----------
+    Location : namedtuple
+        Duplicate defenition of Dyna-pyt Location named-tuple
+
+    immutable_types : list
+        A list of types that are immutable
+
+    collections_modifiers_attributes: list
+        A list of attributes that are changes a collection 
+
+    lines_info: Dict[int, LineMetaData]
+        A dictionary which hold the LineMetaData of every line number in code
+
+    variables_info: Dict[str, VariableMetaData]
+        A dictionary which hold the VariableMetaData of every variable in code
+
+    sliced_function_name : str
+        A fixed function name that slicing occuurs inside that
+
+    slicing_comment : str
+        A fixed comment which indicates the line which the slice should be computed
+
+    static_lines: List[int]
+        A list of line numbers which are out of slicing critrion
+
+    slice_start_line: int
+        The starting line number of slicing
+
+    slice_end_line: int
+        The end line number of slicing
+
+    source: str
+        The Python code before slicing
+
+    source_path: str
+        The path to the code file to be sliced
+
+    iids: Dict[Location, int]
+        A Dictionary that maps every iid to its Location
+
+    control_flow_stack : list
+        A list of line numbers which stacks the control-flow order
+
+    control_flow_dict : dict
+        A dictionary of line numbers which stores the control-flow order
+
+    start_analysis : bool
+        Boolean variable which indicates the slicing computation should start or not
+    -------
+    """
     Location = namedtuple(
         "Location", ["file", "start_line",
                      "start_column", "end_line", "end_column"])
@@ -30,6 +85,12 @@ class Slice(BaseAnalysis):
     start_analysis = False
 
     def __init__(self, source_path: str = ""):
+        """
+        Parameters
+        ----------
+        source_path: str
+            The path to the code file to be sliced
+        """
         super(Slice, self).__init__()
         self.source = ""
         self.source_path = source_path
@@ -42,6 +103,34 @@ class Slice(BaseAnalysis):
         self.start_analysis = False
 
     def read(self, dyn_ast: str, iid: int, val: Any) -> Any:
+        """Hook for reading an object attribute. Here we update our meta-data which helps us to compute the slice.
+        This hook is called when a read of a variable oocurs.
+
+        E.g. `obj.attr`
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        base : Any
+            The object to which the attribute is attached.
+
+        name : str
+            The name of the attribute.
+
+        val : Any
+            The resulting value.
+
+        Returns
+        -------
+        Any
+            If provided, overwrites the returned value.
+
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -72,6 +161,31 @@ class Slice(BaseAnalysis):
                     list(set(dependencies)))
 
     def write(self, dyn_ast: str, iid: int, old_vals: List[Callable], new_val: Any) -> Any:
+        """Hook for writes. Here we update our meta-data which helps us to compute the slice.
+        This hook is called when a write to a variable oocurs.
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        old_vals : Any
+            A list of old values before the write takes effect.
+            It's a list to support multiple assignments.
+            Each old value is wrapped into a lambda function, so that
+            the analysis writer can decide if and when to evaluate it.
+
+        new_val : Any
+            The value after the write takes effect.
+
+        Returns
+        -------
+        Any
+            If provided, overwrites the returned value.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -147,6 +261,36 @@ class Slice(BaseAnalysis):
                         rhs_variable)
 
     def augmented_assignment(self, dyn_ast: str, iid: int, left: Any, op: str, right: Any) -> Any:
+        """Hook for any augmented assignment. Here we update our meta-data which helps us to compute the slice.
+        This hook is called when an augmented assinemnt is called.
+
+        E.g. `a += 1`
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        left : Any
+            The left operand.
+
+        op : str
+            The operator.
+
+        right : Any
+            The right operand.
+
+        val : Any
+            The resulting value.
+
+        Returns
+        -------
+        Any
+            If provided, overwrites the result.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -220,6 +364,33 @@ class Slice(BaseAnalysis):
                         list(set(dependencies)))
 
     def read_attribute(self, dyn_ast: str, iid: int, base: Any, name: str, val: Any) -> Any:
+        """Hook for reading an object attribute. Here we update our meta-data which helps us to compute the slice.
+        This hook is called when a read of attribute from an object is called.
+
+        E.g. `obj.attr`
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        base : Any
+            The object to which the attribute is attached.
+
+        name : str
+            The name of the attribute.
+
+        val : Any
+            The resulting value.
+
+        Returns
+        -------
+        Any
+            If provided, overwrites the returned value.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -258,6 +429,33 @@ class Slice(BaseAnalysis):
                     list(set(dependencies)))
 
     def read_subscript(self, dyn_ast: str, iid: int, base: Any, sl: List[Union[int, Tuple]], val: Any) -> Any:
+        """Hook for reading a subscript, also known as a slice. Here we update our meta-data which helps us to compute the slice.
+        This hook is called when a read of subscript from an object (array) is called.
+
+        E.g. `obj[1, 2]`
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        base : Any
+            The object to which the subscript is attached.
+
+        sl : List[Union[int, Tuple]]
+            The subscript.
+
+        val : Any
+            The resulting value.
+
+        Returns
+        -------
+        Any
+            If provided, overwrites the returned value.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -286,6 +484,27 @@ class Slice(BaseAnalysis):
                     list(set(dependencies)))
 
     def function_enter(self, dyn_ast: str, iid: int, args: List[Any], name: str, is_lambda: bool) -> None:
+        """Hook for when an instrumented function is entered. Here we update our meta-data which helps us to compute the slice.
+        This hook is called before enring a function. We check that if thee function name is matched with sliced_function_name, 
+        then we set slice_start_line, slice_end_line and trigger the start_analysis 
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        args : List[Any]
+            The arguments passed to the function.
+
+        name:
+            Name of the function called.
+
+        is_lambda : bool
+            Whether the function is a lambda function.
+        """
         location = self.iid_to_location(dyn_ast, iid)
         if (name == self.sliced_function_name):
             self.slice_start_line = location.start_line + 1
@@ -293,6 +512,8 @@ class Slice(BaseAnalysis):
             self.start_analysis = True
 
     def end_execution(self) -> None:
+        """Hook for the end of execution. Here we reached end of exuction, so we have to compute slice and create slice.py file
+        """
         for key, value in self.variables_info.items():
             print(
                 f"Variables: {key} -- {value.active_definition} -- {value.elements} -- {value.typeOf}")
@@ -316,6 +537,24 @@ class Slice(BaseAnalysis):
         self.create_sliced_file(sliced_code)
 
     def enter_if(self, dyn_ast: str, iid: int, cond_value: bool) -> Optional[bool]:
+        """Hook called when entering if. Here we entred a control flow, so we add its iid to our control_flow_stack
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        cond_value : bool
+            Whether the condition is true or false.
+
+        Returns
+        -------
+        Optional[bool]
+            If provided, overwrites the condition (which may change the branch outcome).
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -325,11 +564,31 @@ class Slice(BaseAnalysis):
             self.control_flow_dict[iid] = location.start_line
 
     def exit_if(self, dyn_ast, iid):
+        """Hook for exiting if. Here we remove the iid of the control flow from the stack, and all control flows iids that have been inside this flow
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         self.remove_last_control_flow(iid)
 
     def enter_for(self, dyn_ast: str, iid: int, next_value: Any, iterable: Iterable) -> Optional[Any]:
+        """Hook for exiting a for loop. Here we entred a control flow, so we add its iid to our control_flow_stack
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -339,11 +598,39 @@ class Slice(BaseAnalysis):
             self.control_flow_dict[iid] = location.start_line
 
     def exit_for(self, dyn_ast, iid):
+        """Hook for exiting a for loop. Here we remove the iid of the control flow from the stack, and all control flows iids that have been inside this flow
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         self.remove_last_control_flow(iid)
 
     def enter_while(self, dyn_ast: str, iid: int, cond_value: bool) -> Optional[bool]:
+        """Hook for entering the next iteration of a while loop. Here we entred a control flow, so we add its iid to our control_flow_stack
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        cond_value : bool
+            The value of the condition (which may change the branch outcome).
+
+        Returns
+        -------
+        bool
+            If provided, overwrites the condition.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         location = self.iid_to_location(dyn_ast, iid)
@@ -353,11 +640,36 @@ class Slice(BaseAnalysis):
             self.control_flow_dict[iid] = location.start_line
 
     def exit_while(self, dyn_ast, iid):
+        """Hook for exiting a while loop. Here we remove the iid of the control flow from the stack, and all control flows iids that have been inside this flow
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+        """
         if self.can_run_analysis(dyn_ast, iid) == False:
             return
         self.remove_last_control_flow(iid)
 
     def reference_variable(self, dyn_ast: str, iid: int) -> (str, str):
+        """We check whether an assignment is an object's attribute
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        Returns
+        -------
+        (str, str)
+            Returns two strings, object name and object attribute if it is an access to the object's attribute, otherwise returns None, None
+        """
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if isinstance(node, cst.Assign):
@@ -368,6 +680,21 @@ class Slice(BaseAnalysis):
         return None, None
 
     def extract_variables(self, dyn_ast: str, iid: int) -> List[str]:
+        """We extract a list of variables which were used on the left-hand side
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        Returns
+        -------
+        List[str]
+            A list of vvariables used on the left-hand side
+        """
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         variables: List[str] = []
@@ -383,6 +710,21 @@ class Slice(BaseAnalysis):
         return variables
 
     def extract_lhs(self, dyn_ast: str, iid: int) -> (str, str, str):
+        """We extract a tuple of 3 strings, which corresponds to variable name, index and attribute name, respectively
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        Returns
+        -------
+        (str, str, str)
+            A tuple of 3 strings: variable name, index and attribute name, respectively. Values could be None if not the case
+        """
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if (not isinstance(node, cst.Assign)) and (not isinstance(node, cst.AugAssign)):
@@ -413,6 +755,21 @@ class Slice(BaseAnalysis):
         return None, None, None
 
     def extract_subscript(self, node: cst.SubscriptElement) -> str:
+        """We extract subscript of an Index-access
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        Returns
+        -------
+        str
+            The accessed index, if applicable, otherwise None
+        """
         if not isinstance(node.slice, cst.Index):
             return None
 
@@ -427,6 +784,21 @@ class Slice(BaseAnalysis):
             return '-1'
 
     def read_is_via_attribute(self, dyn_ast: str, iid: int) -> (str, str):
+        """Here we check whether a read is an access to object's attribute
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        Returns
+        -------
+        (str, str)
+            A tuple consisting of object's name and its attribute, otherwise None
+        """
         self.prepare_file_attributes()
         if iid + 1 not in self.iids:
             return None, None
@@ -450,6 +822,19 @@ class Slice(BaseAnalysis):
         return None, None
 
     def compute_slice(self, slice_line_number: int) -> List[int]:
+        """A recursive method for computing the slice based on the meta-data that was computed during the execution. 
+        We should call this method with the line number that contains the slicing critrion.
+
+        Parameters
+        ----------
+        slice_line_number : int
+            The line number that points to the current slicing line
+
+        Returns
+        -------
+        List[int]
+            A list of line numbers that should be kept
+        """
         result: List[int] = list()
         result.append(slice_line_number)
         if (slice_line_number in self.lines_info):
@@ -462,6 +847,17 @@ class Slice(BaseAnalysis):
         return list(set(result))
 
     def create_sliced_file(self, sliced_code: str) -> None:
+        """This method creates the slice.py file
+
+        Parameters
+        ----------
+        sliced_code: str
+            Sliced Python code that should be written inside sliced.py file
+
+        Returns
+        -------
+        None
+        """
         slice_path: str = ""
         directory, file_name_extension = path.split(self.source_path)
         _, extension = path.splitext(file_name_extension)
@@ -471,6 +867,20 @@ class Slice(BaseAnalysis):
             file.write(sliced_code)
 
     def get_slicing_criterion_line(self, code: str, comment: str) -> int:
+        """This method finds the line number that contains a specific comment
+
+        Parameters
+        ----------
+        code: str
+            The raw Python code before slicing, which contains a line that with the specified comment
+
+        comment: str    
+            The specified comment that we are looking for its line number
+        Returns
+        -------
+        int
+            Returns the line number that contains the specified comment
+        """
         syntax_tree = cst.parse_module(code)
         wrapper = cst.metadata.MetadataWrapper(syntax_tree)
         comment_finder = CommentFinder(comment)
@@ -478,6 +888,18 @@ class Slice(BaseAnalysis):
         return comment_finder.line_number
 
     def remove_last_control_flow(self, iid: int) -> None:
+        """This method removes a specific control flow's iid from the control_flow_stack and control_flow_dict.
+        It also removes all iids that are inside that control flow
+
+        Parameters
+        ----------
+        iid: int
+            IID of the control flow
+
+        Returns
+        -------
+        None
+        """
         if iid not in self.control_flow_dict:
             return None
 
@@ -490,6 +912,16 @@ class Slice(BaseAnalysis):
                 continue
 
     def prepare_file_attributes(self):
+        """This method prepares source_path, source and iids after the execution 
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         if self.source_path == "":
             self.source_path = next(iter(self.asts))
 
@@ -501,6 +933,21 @@ class Slice(BaseAnalysis):
             self.iids = IIDs(self.source_path).iid_to_location
 
     def can_run_analysis(self, dyn_ast: str, iid: int) -> bool:
+        """This method checks whether we can run analysis inside current node.
+
+        Parameters
+        ----------
+        dyn_ast : str
+            The path to the original code. Can be used to extract the syntax tree.
+
+        iid : int
+            Unique ID of the syntax tree node.
+
+        Returns
+        -------
+        bool
+            A boolean which indicates whether we are in a line (node) that could be analized for sliciing
+        """
         if self.start_analysis == False:
             return False
         location = self.iid_to_location(dyn_ast, iid)
