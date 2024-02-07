@@ -2,3 +2,7 @@
 *.pyc
 src/dynamicslicing/output.log
 tests/milestone1/task_1/main-dynapyt.json
+tests/.DS_Store
+tests/milestone2/.DS_Store
+tests/milestone3/.DS_Store
+.DS_Store

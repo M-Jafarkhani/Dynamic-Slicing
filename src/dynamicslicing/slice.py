@@ -655,7 +655,7 @@ class Slice(BaseAnalysis):
         self.remove_last_control_flow(iid)
 
     def reference_variable(self, dyn_ast: str, iid: int) -> (str, str):
-        """We check whether an assignment is an object's attribute
+        """We check whether an read-hook is via object's attribute
 
         Parameters
         ----------
